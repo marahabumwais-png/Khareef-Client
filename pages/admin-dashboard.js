@@ -212,7 +212,7 @@ function AdminDashboard() {
                     { label: 'Categories', value: categories.length, color: '#8b5cf6' },
                     { label: 'Products',   value: products.length,   color: 'var(--color-gold)' },
                     { label: 'Orders',     value: orders.length,     color: '#3b82f6' },
-                    { label: 'Revenue',    value: totalRevenue.toFixed(2)+' SAR', color: '#22c55e' },
+                    { label: 'Revenue',    value: totalRevenue.toFixed(2)+' NIS', color: '#22c55e' },
                   ].map(({ label, value, color }) => (
                     <div key={label} className="p-5 rounded-2xl" style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
                       <p className="text-xs opacity-50 mb-2" style={{ color: 'var(--color-text)' }}>{label}</p>
@@ -229,7 +229,7 @@ function AdminDashboard() {
                         <p className="font-medium text-sm" style={{ color: 'var(--color-text)' }}>{o.customerName}</p>
                         <p className="text-xs opacity-40" style={{ color: 'var(--color-text)' }}>{o.phone}</p>
                       </div>
-                      <span className="text-sm font-bold" style={{ color: 'var(--color-gold)' }}>{o.total?.toFixed(2)} SAR</span>
+                      <span className="text-sm font-bold" style={{ color: 'var(--color-gold)' }}>{o.total?.toFixed(2)} NIS</span>
                       <span className="badge text-xs capitalize" style={STATUS_COLORS[o.status]||STATUS_COLORS.pending}>{o.status}</span>
                     </div>
                   ))}
@@ -314,7 +314,7 @@ function AdminDashboard() {
                             <td className="px-4 py-3">
                               <span className="badge capitalize" style={{ background: 'rgba(201,168,76,0.1)', color: 'var(--color-gold)' }}>{p.category}</span>
                             </td>
-                            <td className="px-4 py-3 font-semibold" style={{ color: 'var(--color-gold)' }}>{p.price?.toFixed(2)} SAR</td>
+                            <td className="px-4 py-3 font-semibold" style={{ color: 'var(--color-gold)' }}>{p.price?.toFixed(2)} NIS</td>
                             <td className="px-4 py-3">
                               <span className={`font-semibold ${p.quantity===0?'text-red-500':''}`} style={{ color: 'var(--color-text)' }}>{p.quantity??'—'}</span>
                             </td>
@@ -348,7 +348,7 @@ function AdminDashboard() {
                         {o.createdAt && <p className="text-xs opacity-30 mt-0.5" style={{ color: 'var(--color-text)' }}>{o.createdAt}</p>}
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-lg font-bold" style={{ color: 'var(--color-gold)' }}>{o.total?.toFixed(2)} SAR</span>
+                        <span className="text-lg font-bold" style={{ color: 'var(--color-gold)' }}>{o.total?.toFixed(2)} NIS</span>
                         <select value={o.status||'pending'} onChange={e=>handleStatusChange(o.id,e.target.value)}
                           className="text-xs px-2 py-1.5 rounded-lg border outline-none font-medium"
                           style={{ background: STATUS_COLORS[o.status]?.bg||STATUS_COLORS.pending.bg, color: STATUS_COLORS[o.status]?.color||STATUS_COLORS.pending.color, borderColor: 'transparent' }}>
@@ -364,7 +364,7 @@ function AdminDashboard() {
                       <div key={i} className="flex items-center gap-3 text-sm mb-1">
                         {item.image && <img src={item.image} alt={item.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />}
                         <span className="flex-1 opacity-70" style={{ color: 'var(--color-text)' }}>{item.name} {item.color&&`(${item.color})`} ×{item.quantity}</span>
-                        <span style={{ color: 'var(--color-text)' }}>{(item.price*item.quantity).toFixed(2)} SAR</span>
+                        <span style={{ color: 'var(--color-text)' }}>{(item.price*item.quantity).toFixed(2)} NIS</span>
                       </div>
                     ))}
                     <p className="text-xs opacity-20 mt-2 font-mono" style={{ color: 'var(--color-text)' }}>ID: {o.id}</p>
@@ -407,7 +407,7 @@ function AdminDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>Price (SAR) *</label>
+                  <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>Price (NIS) *</label>
                   <input type="number" min="0" step="0.01" className="input-field" value={pForm.price} required onChange={e=>setPForm(f=>({...f,price:e.target.value}))} placeholder="0.00" />
                 </div>
                 <div>

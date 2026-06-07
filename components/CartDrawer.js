@@ -99,7 +99,7 @@ export default function CartDrawer() {
                     </p>
                   )}
                   <p className="text-sm font-semibold mt-1" style={{ color: 'var(--color-gold)' }}>
-                    {(item.price * item.quantity).toFixed(2)} {t('sar')}
+                    {(item.price * item.quantity).toFixed(2)} {t('nis')}
                   </p>
 
                   {/* Quantity Controls */}
@@ -147,7 +147,7 @@ export default function CartDrawer() {
                 {t('total')}
               </span>
               <span className="text-xl font-bold" style={{ color: 'var(--color-gold)' }}>
-                {totalPrice.toFixed(2)} {t('sar')}
+                {totalPrice.toFixed(2)} {t('nis')}
               </span>
             </div>
             <Link

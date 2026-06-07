@@ -83,7 +83,7 @@ export default function ProductCard({ product }) {
 
           {/* Price */}
           <p className="text-base font-bold" style={{ color: 'var(--color-gold)' }}>
-            {product.price?.toFixed(2)} <span className="text-xs font-normal">{t('sar')}</span>
+            {product.price?.toFixed(2)} <span className="text-xs font-normal">{t('nis')}</span>
           </p>
         </div>
       </div>

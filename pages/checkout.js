@@ -147,7 +147,7 @@ export default function CheckoutPage() {
                 <div className="flex justify-between text-base font-bold pt-3 border-t"
                   style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
                   <span>{t('total')}</span>
-                  <span style={{ color: 'var(--color-gold)' }}>{totalPrice.toFixed(2)} {t('sar')}</span>
+                  <span style={{ color: 'var(--color-gold)' }}>{totalPrice.toFixed(2)} {t('nis')}</span>
                 </div>
               </div>
             </div>

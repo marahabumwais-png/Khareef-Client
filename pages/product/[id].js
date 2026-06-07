@@ -120,7 +120,7 @@ export default function ProductDetailPage() {
             <h1 className="text-2xl md:text-3xl font-display font-bold leading-snug"
               style={{ color: 'var(--color-text)' }}>{displayName}</h1>
             <div className="text-3xl font-bold" style={{ color: 'var(--color-gold)' }}>
-              {product.price?.toFixed(2)}<span className="text-base font-normal ms-1 opacity-70">{t('sar')}</span>
+              {product.price?.toFixed(2)}<span className="text-base font-normal ms-1 opacity-70">{t('nis')}</span>
             </div>
 
             {displayDesc && (
@@ -165,7 +165,7 @@ export default function ProductDetailPage() {
                   <FiPlus size={16} />
                 </button>
                 <span className="text-sm ms-2 opacity-50" style={{ color: 'var(--color-text)' }}>
-                  {isRTL ? `المجموع: ${(product.price * qty).toFixed(2)} ${t('sar')}` : `Total: ${(product.price * qty).toFixed(2)} ${t('sar')}`}
+                  {isRTL ? `المجموع: ${(product.price * qty).toFixed(2)} ${t('nis')}` : `Total: ${(product.price * qty).toFixed(2)} ${t('nis')}`}
                 </span>
               </div>
             </div>
