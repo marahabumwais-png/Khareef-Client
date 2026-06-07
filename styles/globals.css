@@ -1,0 +1,165 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=Cairo:wght@300;400;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========================================
+   CSS Variables
+   ======================================== */
+:root {
+  --color-bg:         #fdf8f0;
+  --color-bg-card:    #ffffff;
+  --color-text:       #2d2a22;
+  --color-text-muted: #7a7065;
+  --color-border:     #e5dbc1;
+  --color-gold:       #c9a84c;
+  --color-sage:       #558552;
+  --shadow-sm:        0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md:        0 4px 16px rgba(0,0,0,0.10);
+  --shadow-lg:        0 8px 32px rgba(0,0,0,0.13);
+}
+
+.dark {
+  /* Dark mode vars are set dynamically by ThemeContext JS */
+  /* These are fallback defaults only */
+  --color-bg:         var(--color-bg, #1a1812);
+  --color-bg-card:    var(--color-bg-card, #252218);
+  --color-text:       var(--color-text, #f0ead8);
+  --color-text-muted: #9a8f7e;
+  --color-border:     var(--color-border, #3a3528);
+  --shadow-sm:        0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md:        0 4px 16px rgba(0,0,0,0.4);
+  --shadow-lg:        0 8px 32px rgba(0,0,0,0.5);
+}
+
+/* ========================================
+   Base Styles
+   ======================================== */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'DM Sans', system-ui, sans-serif;
+  transition: background-color 0.3s, color 0.3s;
+  min-height: 100vh;
+}
+
+[lang="ar"] body,
+[dir="rtl"] body {
+  font-family: 'Cairo', 'DM Sans', system-ui, sans-serif;
+}
+
+/* ========================================
+   Typography
+   ======================================== */
+.font-display {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+[dir="rtl"] .font-display {
+  font-family: 'Cairo', serif;
+  letter-spacing: 0;
+}
+
+/* ========================================
+   Custom Components
+   ======================================== */
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold text-white transition-all duration-200;
+    background: linear-gradient(135deg, #c9a84c, #9a7940);
+    box-shadow: 0 4px 14px rgba(201, 168, 76, 0.35);
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(201, 168, 76, 0.5);
+  }
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold transition-all duration-200 border-2;
+    border-color: var(--color-border);
+    color: var(--color-text);
+    background: var(--color-bg-card);
+  }
+  .btn-secondary:hover {
+    border-color: var(--color-gold);
+    color: var(--color-gold);
+    transform: translateY(-1px);
+  }
+
+  .card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 rounded-xl text-sm transition-all duration-200 outline-none;
+    background: var(--color-bg);
+    border: 1.5px solid var(--color-border);
+    color: var(--color-text);
+  }
+  .input-field:focus {
+    border-color: var(--color-gold);
+    box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.12);
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--color-border) 25%, var(--color-bg) 50%, var(--color-border) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 8px;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+}
+
+/* ========================================
+   Scrollbar
+   ======================================== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--color-bg); }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-gold); }
+
+/* ========================================
+   Page Transitions
+   ======================================== */
+.page-enter {
+  animation: fadeIn 0.4s ease-in-out;
+}
+
+/* ========================================
+   RTL Utilities
+   ======================================== */
+[dir="rtl"] .rtl-flip {
+  transform: scaleX(-1);
+}
+
+/* ========================================
+   Product Image Gallery
+   ======================================== */
+.image-gallery-thumbnail.active,
+.image-gallery-thumbnail:focus,
+.image-gallery-thumbnail:hover {
+  border: 2px solid #c9a84c !important;
+}
