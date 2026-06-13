@@ -1,4 +1,4 @@
-// Product Detail Page - fetches from Firestore directly
+// Product Detail Page - sizes, discounts, colors
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
@@ -10,11 +10,11 @@ import ProductCard from '../../components/ProductCard';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { FiMinus, FiPlus, FiShoppingCart, FiArrowLeft, FiArrowRight } from 'react-icons/fi';
-import { FiFacebook, FiInstagram } from 'react-icons/fi';
+import { FiFacebook } from 'react-icons/fi';
 
 export default function ProductDetailPage() {
   const router = useRouter();
-  const { id } = router.query;
+  const { id }  = router.query;
   const { t, lang, isRTL } = useLanguage();
   const { addToCart, setIsCartOpen } = useCart();
 
@@ -23,11 +23,12 @@ export default function ProductDetailPage() {
   const [error,    setError]    = useState(null);
   const [selImage, setSelImage] = useState(0);
   const [selColor, setSelColor] = useState('');
+  const [selSize,  setSelSize]  = useState('');
   const [qty,      setQty]      = useState(1);
   const [related,  setRelated]  = useState([]);
 
-  const FACEBOOK  = 'https://www.facebook.com/profile.php?id=100068186145506';
-  const BackIcon  = isRTL ? FiArrowRight : FiArrowLeft;
+  const FACEBOOK = 'https://www.facebook.com/profile.php?id=100068186145506';
+  const BackIcon = isRTL ? FiArrowRight : FiArrowLeft;
 
   useEffect(() => {
     if (!id) return;
@@ -38,26 +39,22 @@ export default function ProductDetailPage() {
         if (!p) { setError('Product not found'); return; }
         setProduct(p);
         if (p.colors?.length > 0) setSelColor(p.colors[0]);
+        if (p.sizes?.length  > 0) setSelSize(p.sizes[0]);
         if (p.category) {
           const rel = await getProducts(p.category);
           setRelated(rel.filter(r => r.id !== id).slice(0, 4));
         }
-      } catch (e) {
-        setError(e.message);
-      } finally {
-        setLoading(false);
-      }
+      } catch (e) { setError(e.message); }
+      finally { setLoading(false); }
     };
     load();
   }, [id]);
 
   const handleAddToCart = () => {
-    addToCart(product, selColor, qty);
+    addToCart(product, selColor, selSize, qty);
     toast.success(lang === 'ar' ? 'تمت الإضافة للسلة!' : 'Added to cart!');
     setIsCartOpen(true);
   };
-
-
 
   if (loading) return <Layout><ProductDetailSkeleton /></Layout>;
   if (error || !product) return (
@@ -71,6 +68,13 @@ export default function ProductDetailPage() {
 
   const displayName = lang === 'ar' && product.nameAr ? product.nameAr : product.name;
   const displayDesc = lang === 'ar' && product.descriptionAr ? product.descriptionAr : product.description;
+  const finalPrice  = product.finalPrice ?? product.price;
+  const hasDiscount = finalPrice < product.price;
+  const discountLabel = hasDiscount
+    ? product.discount?.type === 'percent'
+      ? `${product.discount.value}% ${isRTL ? 'خصم' : 'OFF'}`
+      : `${product.discount.value} ${t('sar')} ${isRTL ? 'خصم' : 'OFF'}`
+    : null;
 
   return (
     <Layout title={displayName} description={displayDesc}>
@@ -90,11 +94,16 @@ export default function ProductDetailPage() {
             <div className="relative aspect-square rounded-2xl overflow-hidden"
               style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
               {product.images?.[selImage] ? (
-                <img src={product.images[selImage]} alt={displayName}
-                  className="w-full h-full object-cover" />
+                <img src={product.images[selImage]} alt={displayName} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center opacity-20">
                   <FiShoppingCart size={64} />
+                </div>
+              )}
+              {hasDiscount && (
+                <div className="absolute top-3 start-3 px-3 py-1.5 rounded-xl text-sm font-bold text-white"
+                  style={{ background: '#ef4444' }}>
+                  {discountLabel}
                 </div>
               )}
             </div>
@@ -117,12 +126,31 @@ export default function ProductDetailPage() {
               style={{ background: 'rgba(201,168,76,0.1)', color: 'var(--color-gold)' }}>
               {product.category}
             </span>
+
             <h1 className="text-2xl md:text-3xl font-display font-bold leading-snug"
-              style={{ color: 'var(--color-text)' }}>{displayName}</h1>
-            <div className="text-3xl font-bold" style={{ color: 'var(--color-gold)' }}>
-              {product.price?.toFixed(2)}<span className="text-base font-normal ms-1 opacity-70">{t('nis')}</span>
+              style={{ color: 'var(--color-text)' }}>
+              {displayName}
+            </h1>
+
+            {/* Price with discount */}
+            <div className="flex items-end gap-3">
+              <span className="text-3xl font-bold" style={{ color: 'var(--color-gold)' }}>
+                {finalPrice?.toFixed(2)}
+                <span className="text-base font-normal ms-1 opacity-70">{t('sar')}</span>
+              </span>
+              {hasDiscount && (
+                <>
+                  <span className="text-lg line-through opacity-40" style={{ color: 'var(--color-text)' }}>
+                    {product.price?.toFixed(2)}
+                  </span>
+                  <span className="px-2 py-1 rounded-lg text-xs font-bold text-white" style={{ background: '#ef4444' }}>
+                    {discountLabel}
+                  </span>
+                </>
+              )}
             </div>
 
+            {/* Description */}
             {displayDesc && (
               <div>
                 <h3 className="text-sm font-semibold uppercase tracking-wider mb-2 opacity-50"
@@ -131,12 +159,37 @@ export default function ProductDetailPage() {
               </div>
             )}
 
+            {/* Sizes — optional */}
+            {product.sizes?.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider mb-3 opacity-50"
+                  style={{ color: 'var(--color-text)' }}>
+                  {isRTL ? 'المقاس' : 'Size'}
+                  {selSize && <span className="ms-2 normal-case font-normal opacity-70">— {selSize}</span>}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {product.sizes.map(size => (
+                    <button key={size} onClick={() => setSelSize(size)}
+                      className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all hover:scale-105 ${selSize === size ? 'text-white' : ''}`}
+                      style={{
+                        borderColor:     selSize === size ? 'var(--color-gold)' : 'var(--color-border)',
+                        background:      selSize === size ? 'var(--color-gold)' : 'transparent',
+                        color:           selSize === size ? '#fff' : 'var(--color-text)',
+                      }}>
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Colors */}
             {product.colors?.length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold uppercase tracking-wider mb-3 opacity-50"
                   style={{ color: 'var(--color-text)' }}>
-                  {t('colors')} {selColor && <span className="ms-2 normal-case font-normal opacity-70">— {selColor}</span>}
+                  {t('colors')}
+                  {selColor && <span className="ms-2 normal-case font-normal opacity-70">— {selColor}</span>}
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {product.colors.map(color => (
@@ -165,7 +218,9 @@ export default function ProductDetailPage() {
                   <FiPlus size={16} />
                 </button>
                 <span className="text-sm ms-2 opacity-50" style={{ color: 'var(--color-text)' }}>
-                  {isRTL ? `المجموع: ${(product.price * qty).toFixed(2)} ${t('nis')}` : `Total: ${(product.price * qty).toFixed(2)} ${t('nis')}`}
+                  {isRTL
+                    ? `المجموع: ${(finalPrice * qty).toFixed(2)} ${t('sar')}`
+                    : `Total: ${(finalPrice * qty).toFixed(2)} ${t('sar')}`}
                 </span>
               </div>
             </div>

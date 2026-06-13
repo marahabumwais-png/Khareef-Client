@@ -77,7 +77,7 @@ export default function CartPage() {
                       </div>
                     )}
                     <p className="font-bold text-sm" style={{ color: 'var(--color-gold)' }}>
-                      {item.price.toFixed(2)} {t('nis')} {isRTL ? 'للقطعة' : 'each'}
+                      {item.price.toFixed(2)} {t('sar')} {isRTL ? 'للقطعة' : 'each'}
                     </p>
 
                     {/* Quantity + Remove */}
@@ -107,7 +107,7 @@ export default function CartPage() {
                       </div>
 
                       <span className="text-sm font-semibold ms-auto" style={{ color: 'var(--color-gold)' }}>
-                        {(item.price * item.quantity).toFixed(2)} {t('nis')}
+                        {(item.price * item.quantity).toFixed(2)} {t('sar')}
                       </span>
 
                       <button
@@ -149,7 +149,7 @@ export default function CartPage() {
                 >
                   <span>{t('total')}</span>
                   <span style={{ color: 'var(--color-gold)' }}>
-                    {totalPrice.toFixed(2)} {t('nis')}
+                    {totalPrice.toFixed(2)} {t('sar')}
                   </span>
                 </div>
                 <Link href="/checkout" className="btn-primary w-full text-center block">

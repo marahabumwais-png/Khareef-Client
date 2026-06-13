@@ -93,13 +93,16 @@ export default function CartDrawer() {
                   <p className="font-medium text-sm truncate" style={{ color: 'var(--color-text)' }}>
                     {lang === 'ar' && item.nameAr ? item.nameAr : item.name}
                   </p>
-                  {item.selectedColor && (
-                    <p className="text-xs mt-0.5 opacity-60" style={{ color: 'var(--color-text)' }}>
-                      {item.selectedColor}
-                    </p>
-                  )}
+                  <div className="flex gap-2 flex-wrap mt-0.5">
+                    {item.selectedColor && (
+                      <span className="text-xs opacity-60" style={{ color: 'var(--color-text)' }}>{item.selectedColor}</span>
+                    )}
+                    {item.selectedSize && (
+                      <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--color-border)', color: 'var(--color-text)' }}>{item.selectedSize}</span>
+                    )}
+                  </div>
                   <p className="text-sm font-semibold mt-1" style={{ color: 'var(--color-gold)' }}>
-                    {(item.price * item.quantity).toFixed(2)} {t('nis')}
+                    {(item.price * item.quantity).toFixed(2)} {t('sar')}
                   </p>
 
                   {/* Quantity Controls */}
@@ -147,7 +150,7 @@ export default function CartDrawer() {
                 {t('total')}
               </span>
               <span className="text-xl font-bold" style={{ color: 'var(--color-gold)' }}>
-                {totalPrice.toFixed(2)} {t('nis')}
+                {totalPrice.toFixed(2)} {t('sar')}
               </span>
             </div>
             <Link

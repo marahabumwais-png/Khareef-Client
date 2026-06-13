@@ -1,6 +1,7 @@
-// Admin Dashboard - /admin-dashboard — 100% Firebase, no backend
+// Admin Dashboard — sizes, discounts, status filters, overview cards
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
 import withAdminAuth from '../components/withAdminAuth';
 import {
   getProductsAdmin, addProduct, updateProduct, deleteProduct,
@@ -11,20 +12,30 @@ import {
 import { useRouter } from 'next/router';
 import toast from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
-import { FiPackage, FiShoppingBag, FiPlus, FiEdit2, FiTrash2, FiX, FiUpload, FiLogOut, FiGrid, FiTag, FiSettings } from 'react-icons/fi';
-import Link from 'next/link';
+import {
+  FiPackage, FiShoppingBag, FiPlus, FiEdit2, FiTrash2,
+  FiX, FiUpload, FiLogOut, FiGrid, FiTag, FiSettings,
+  FiFilter,
+} from 'react-icons/fi';
 import { TableSkeleton } from '../components/Skeletons';
 
 const STATUS_COLORS = {
-  pending:   { bg: 'rgba(245,158,11,0.1)',  color: '#d97706' },
-  confirmed: { bg: 'rgba(59,130,246,0.1)',  color: '#3b82f6' },
-  shipped:   { bg: 'rgba(139,92,246,0.1)',  color: '#8b5cf6' },
-  delivered: { bg: 'rgba(34,197,94,0.1)',   color: '#22c55e' },
-  cancelled: { bg: 'rgba(239,68,68,0.1)',   color: '#ef4444' },
+  pending:   { bg: 'rgba(245,158,11,0.12)', color: '#d97706' },
+  confirmed: { bg: 'rgba(59,130,246,0.12)',  color: '#3b82f6' },
+  shipped:   { bg: 'rgba(139,92,246,0.12)',  color: '#8b5cf6' },
+  delivered: { bg: 'rgba(34,197,94,0.12)',   color: '#22c55e' },
+  cancelled: { bg: 'rgba(239,68,68,0.12)',   color: '#ef4444' },
 };
+const ALL_STATUSES = ['all', 'pending', 'confirmed', 'shipped', 'delivered', 'cancelled'];
 
-const EMPTY_PRODUCT = { name: '', nameAr: '', category: '', price: '', description: '', descriptionAr: '', colors: '', quantity: '', images: [] };
-const EMPTY_CAT     = { name: '', nameAr: '', color: '#c9a84c', icon: 'FiBox' };
+const EMPTY_PRODUCT = {
+  name: '', nameAr: '', category: '', price: '',
+  description: '', descriptionAr: '',
+  colors: '', sizes: '', quantity: '',
+  images: [],
+  discount: { active: false, type: 'percent', value: '' },
+};
+const EMPTY_CAT = { name: '', nameAr: '', color: '#c9a84c', icon: 'FiBox' };
 
 function AdminDashboard() {
   const router = useRouter();
@@ -38,13 +49,16 @@ function AdminDashboard() {
   const [loadingO, setLoadingO] = useState(true);
   const [loadingC, setLoadingC] = useState(true);
 
+  // Order filter — default to pending
+  const [orderFilter, setOrderFilter] = useState('pending');
+
   // Product modal
-  const [showPModal,   setShowPModal]   = useState(false);
-  const [editingP,     setEditingP]     = useState(null);
-  const [pForm,        setPForm]        = useState(EMPTY_PRODUCT);
-  const [uploading,    setUploading]    = useState(false);
-  const [uploadPct,    setUploadPct]    = useState(0);
-  const [savingP,      setSavingP]      = useState(false);
+  const [showPModal, setShowPModal] = useState(false);
+  const [editingP,   setEditingP]   = useState(null);
+  const [pForm,      setPForm]      = useState(EMPTY_PRODUCT);
+  const [uploading,  setUploading]  = useState(false);
+  const [uploadPct,  setUploadPct]  = useState(0);
+  const [savingP,    setSavingP]    = useState(false);
   const fileRef = useRef();
 
   // Category modal
@@ -56,41 +70,52 @@ function AdminDashboard() {
   useEffect(() => { load(); }, []);
 
   const load = async () => {
-    try { setLoadingP(true); setProducts(await getProductsAdmin()); } catch { toast.error('Failed to load products'); } finally { setLoadingP(false); }
-    try { setLoadingO(true); setOrders(await getOrders()); }         catch { toast.error('Failed to load orders'); }   finally { setLoadingO(false); }
-    try { setLoadingC(true); setCategories(await getCategories()); } catch { toast.error('Failed to load categories'); } finally { setLoadingC(false); }
+    try { setLoadingP(true); setProducts(await getProductsAdmin()); }   catch { toast.error('Failed to load products'); }   finally { setLoadingP(false); }
+    try { setLoadingO(true); setOrders(await getOrders()); }            catch { toast.error('Failed to load orders'); }     finally { setLoadingO(false); }
+    try { setLoadingC(true); setCategories(await getCategories()); }   catch { toast.error('Failed to load categories'); } finally { setLoadingC(false); }
   };
 
   const handleLogout = () => { logoutAdmin(); router.replace('/admin-login'); };
 
-  // ---- Product ----
-  const openAddP = () => { setEditingP(null); setPForm({ ...EMPTY_PRODUCT, category: categories[0]?.name || '' }); setShowPModal(true); };
+  // ---- Filtered orders ----
+  const filteredOrders = orderFilter === 'all'
+    ? orders
+    : orders.filter(o => (o.status || 'pending') === orderFilter);
+
+  const pendingCount   = orders.filter(o => (o.status || 'pending') === 'pending').length;
+  const totalRevenue   = orders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total || 0), 0);
+
+  // ---- Product handlers ----
+  const openAddP  = () => { setEditingP(null); setPForm({ ...EMPTY_PRODUCT, category: categories[0]?.name || '' }); setShowPModal(true); };
   const openEditP = (p) => {
     setEditingP(p);
-    setPForm({ name: p.name||'', nameAr: p.nameAr||'', category: p.category||'', price: p.price?.toString()||'', description: p.description||'', descriptionAr: p.descriptionAr||'', colors: Array.isArray(p.colors)?p.colors.join(', '):'', quantity: p.quantity?.toString()||'', images: p.images||[] });
+    setPForm({
+      name: p.name||'', nameAr: p.nameAr||'', category: p.category||'',
+      price: p.price?.toString()||'',
+      description: p.description||'', descriptionAr: p.descriptionAr||'',
+      colors:   Array.isArray(p.colors) ? p.colors.join(', ') : '',
+      sizes:    Array.isArray(p.sizes)  ? p.sizes.join(', ')  : '',
+      quantity: p.quantity?.toString()||'',
+      images:   p.images||[],
+      discount: p.discount || { active: false, type: 'percent', value: '' },
+    });
     setShowPModal(true);
   };
 
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-    setUploading(true);
-    setUploadPct(0);
+    setUploading(true); setUploadPct(0);
     try {
       const urls = [];
       for (let i = 0; i < files.length; i++) {
-        const url = await uploadImage(files[i], (pct) => setUploadPct(Math.round((i / files.length * 100) + pct / files.length)));
+        const url = await uploadImage(files[i], pct => setUploadPct(Math.round((i / files.length * 100) + pct / files.length)));
         urls.push(url);
       }
       setPForm(f => ({ ...f, images: [...f.images, ...urls] }));
       toast.success(`${urls.length} image(s) uploaded!`);
-    } catch (err) {
-      toast.error('Upload failed: ' + err.message);
-    } finally {
-      setUploading(false);
-      setUploadPct(0);
-      if (fileRef.current) fileRef.current.value = '';
-    }
+    } catch (err) { toast.error('Upload failed: ' + err.message); }
+    finally { setUploading(false); setUploadPct(0); if (fileRef.current) fileRef.current.value = ''; }
   };
 
   const handleSaveP = async (e) => {
@@ -98,7 +123,19 @@ function AdminDashboard() {
     if (!pForm.name || !pForm.price || !pForm.category) { toast.error('Name, category and price required'); return; }
     setSavingP(true);
     try {
-      const data = { ...pForm, price: parseFloat(pForm.price), quantity: parseInt(pForm.quantity)||0, colors: pForm.colors.split(',').map(c=>c.trim()).filter(Boolean) };
+      const discountValue = parseFloat(pForm.discount?.value) || 0;
+      const data = {
+        ...pForm,
+        price:    parseFloat(pForm.price),
+        quantity: parseInt(pForm.quantity) || 0,
+        colors:   pForm.colors.split(',').map(c => c.trim()).filter(Boolean),
+        sizes:    pForm.sizes.split(',').map(s => s.trim()).filter(Boolean),
+        discount: {
+          active: pForm.discount?.active && discountValue > 0,
+          type:   pForm.discount?.type || 'percent',
+          value:  discountValue,
+        },
+      };
       if (editingP) { await updateProduct(editingP.id, data); toast.success('Product updated!'); }
       else          { await addProduct(data);                  toast.success('Product created!'); }
       setShowPModal(false);
@@ -113,7 +150,7 @@ function AdminDashboard() {
     catch { toast.error('Delete failed'); }
   };
 
-  // ---- Category ----
+  // ---- Category handlers ----
   const openAddC  = () => { setEditingC(null); setCForm(EMPTY_CAT); setShowCModal(true); };
   const openEditC = (c) => { setEditingC(c); setCForm({ name: c.nameLabel||c.name, nameAr: c.nameAr||'', color: c.color||'#c9a84c', icon: c.icon||'FiBox' }); setShowCModal(true); };
 
@@ -122,27 +159,29 @@ function AdminDashboard() {
     if (!cForm.name) { toast.error('Name required'); return; }
     setSavingC(true);
     try {
-      if (editingC) { await updateCategory(editingC.id, { ...cForm, name: cForm.name.toLowerCase(), nameLabel: cForm.name }); toast.success('Category updated!'); }
-      else          { await addCategory({ ...cForm, name: cForm.name.toLowerCase(), nameLabel: cForm.name }); toast.success('Category created!'); }
+      const d = { ...cForm, name: cForm.name.toLowerCase(), nameLabel: cForm.name };
+      if (editingC) { await updateCategory(editingC.id, d); toast.success('Updated!'); }
+      else          { await addCategory(d);                  toast.success('Created!'); }
       setShowCModal(false);
       setCategories(await getCategories());
-    } catch (e) { toast.error(e.message || 'Save failed'); }
+    } catch (e) { toast.error(e.message); }
     finally { setSavingC(false); }
   };
 
   const handleDeleteC = async (c) => {
     if (!window.confirm(`Delete "${c.nameLabel||c.name}"?`)) return;
     try { await deleteCategory(c.id); toast.success('Deleted'); setCategories(await getCategories()); }
-    catch (e) { toast.error(e.message || 'Delete failed'); }
+    catch (e) { toast.error(e.message); }
   };
 
-  // ---- Orders ----
+  // ---- Order handlers ----
   const handleStatusChange = async (id, status) => {
-    try { await updateOrderStatus(id, status); setOrders(prev => prev.map(o => o.id===id ? {...o,status} : o)); toast.success('Updated'); }
-    catch { toast.error('Failed'); }
+    try {
+      await updateOrderStatus(id, status);
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
+      toast.success('Status updated');
+    } catch { toast.error('Failed'); }
   };
-
-  const totalRevenue = orders.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+(o.total||0),0);
 
   const TABS = [
     { id: 'overview',   label: 'Overview',   icon: FiGrid },
@@ -150,6 +189,24 @@ function AdminDashboard() {
     { id: 'products',   label: 'Products',   icon: FiPackage },
     { id: 'orders',     label: 'Orders',     icon: FiShoppingBag },
   ];
+
+  // Shared status filter bar
+  const StatusFilterBar = ({ value, onChange }) => (
+    <div className="flex gap-2 flex-wrap">
+      {ALL_STATUSES.map(s => (
+        <button key={s} onClick={() => onChange(s)}
+          className="px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all"
+          style={{
+            background: value === s ? (STATUS_COLORS[s]?.bg || 'rgba(201,168,76,0.12)') : 'var(--color-bg)',
+            color:      value === s ? (STATUS_COLORS[s]?.color || 'var(--color-gold)') : 'var(--color-text)',
+            border:     `1px solid ${value === s ? (STATUS_COLORS[s]?.color || 'var(--color-gold)') : 'var(--color-border)'}`,
+            opacity:    value === s ? 1 : 0.6,
+          }}>
+          {s === 'all' ? `All (${orders.length})` : `${s} (${orders.filter(o => (o.status||'pending') === s).length})`}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <>
@@ -196,48 +253,78 @@ function AdminDashboard() {
             <div className="flex gap-2 mb-6 md:hidden overflow-x-auto pb-1">
               {TABS.map(({ id, label }) => (
                 <button key={id} onClick={() => setTab(id)}
-                  className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+                  className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium capitalize transition-all"
                   style={{ background: tab===id ? 'var(--color-gold)' : 'var(--color-bg-card)', color: tab===id ? '#fff' : 'var(--color-text)', border: '1px solid var(--color-border)' }}>
                   {label}
                 </button>
               ))}
             </div>
 
-            {/* OVERVIEW */}
+            {/* ====== OVERVIEW ====== */}
             {tab === 'overview' && (
               <div className="space-y-6 animate-fade-in">
                 <h1 className="text-2xl font-display font-bold" style={{ color: 'var(--color-text)' }}>Overview</h1>
+
+                {/* Stats cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {[
-                    { label: 'Categories', value: categories.length, color: '#8b5cf6' },
-                    { label: 'Products',   value: products.length,   color: 'var(--color-gold)' },
-                    { label: 'Orders',     value: orders.length,     color: '#3b82f6' },
-                    { label: 'Revenue',    value: totalRevenue.toFixed(2)+' NIS', color: '#22c55e' },
-                  ].map(({ label, value, color }) => (
+                    { label: 'Total Products', value: products.length,          color: 'var(--color-gold)', icon: FiPackage },
+                    { label: 'Total Orders',   value: orders.length,            color: '#3b82f6',           icon: FiShoppingBag },
+                    { label: 'Pending Orders', value: pendingCount,             color: '#d97706',           icon: FiFilter },
+                    { label: 'Revenue (SAR)',  value: totalRevenue.toFixed(2),  color: '#22c55e',           icon: FiGrid },
+                  ].map(({ label, value, color, icon: Icon }) => (
                     <div key={label} className="p-5 rounded-2xl" style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
-                      <p className="text-xs opacity-50 mb-2" style={{ color: 'var(--color-text)' }}>{label}</p>
-                      <p className="text-xl font-bold" style={{ color }}>{value}</p>
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs opacity-50 leading-tight" style={{ color: 'var(--color-text)' }}>{label}</p>
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${color}18` }}>
+                          <Icon size={15} style={{ color }} />
+                        </div>
+                      </div>
+                      <p className="text-2xl font-bold" style={{ color }}>{value}</p>
                     </div>
                   ))}
                 </div>
+
+                {/* Order filter */}
                 <div>
-                  <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text)' }}>Recent Orders</h2>
-                  {loadingO ? <TableSkeleton rows={3} /> : orders.slice(0,5).map(o => (
-                    <div key={o.id} className="flex items-center gap-4 p-4 rounded-2xl mb-3"
-                      style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm" style={{ color: 'var(--color-text)' }}>{o.customerName}</p>
-                        <p className="text-xs opacity-40" style={{ color: 'var(--color-text)' }}>{o.phone}</p>
-                      </div>
-                      <span className="text-sm font-bold" style={{ color: 'var(--color-gold)' }}>{o.total?.toFixed(2)} NIS</span>
-                      <span className="badge text-xs capitalize" style={STATUS_COLORS[o.status]||STATUS_COLORS.pending}>{o.status}</span>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold" style={{ color: 'var(--color-text)' }}>Recent Orders</h2>
+                  </div>
+                  <div className="mb-4">
+                    <StatusFilterBar value={orderFilter} onChange={setOrderFilter} />
+                  </div>
+                  {loadingO ? <TableSkeleton rows={3} /> : (
+                    <div className="space-y-3">
+                      {filteredOrders.slice(0, 8).length === 0 ? (
+                        <p className="text-center py-8 opacity-30 text-sm" style={{ color: 'var(--color-text)' }}>
+                          No {orderFilter} orders
+                        </p>
+                      ) : filteredOrders.slice(0, 8).map(o => (
+                        <div key={o.id} className="flex items-center gap-4 p-4 rounded-2xl"
+                          style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm" style={{ color: 'var(--color-text)' }}>{o.customerName}</p>
+                            <p className="text-xs opacity-40" style={{ color: 'var(--color-text)' }}>{o.phone} · {o.createdAt}</p>
+                          </div>
+                          <span className="text-sm font-bold" style={{ color: 'var(--color-gold)' }}>{o.total?.toFixed(2)} SAR</span>
+                          <select value={o.status||'pending'} onChange={e => handleStatusChange(o.id, e.target.value)}
+                            className="text-xs px-2 py-1.5 rounded-lg border outline-none font-medium"
+                            style={{ background: STATUS_COLORS[o.status||'pending']?.bg, color: STATUS_COLORS[o.status||'pending']?.color, borderColor: 'transparent' }}>
+                            {['pending','confirmed','shipped','delivered','cancelled'].map(s => (
+                              <option key={s} value={s} style={{ background: 'var(--color-bg-card)', color: 'var(--color-text)' }}>
+                                {s.charAt(0).toUpperCase()+s.slice(1)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )}
 
-            {/* CATEGORIES */}
+            {/* ====== CATEGORIES ====== */}
             {tab === 'categories' && (
               <div className="space-y-6 animate-fade-in">
                 <div className="flex items-center justify-between">
@@ -260,8 +347,8 @@ function AdminDashboard() {
                           {cat.nameAr && <p className="text-sm opacity-50" dir="rtl" style={{ color: 'var(--color-text)' }}>{cat.nameAr}</p>}
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={()=>openEditC(cat)} className="p-2 rounded-lg hover:opacity-70" style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}><FiEdit2 size={14} /></button>
-                          <button onClick={()=>handleDeleteC(cat)} className="p-2 rounded-lg hover:opacity-70" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}><FiTrash2 size={14} /></button>
+                          <button onClick={() => openEditC(cat)} className="p-2 rounded-lg hover:opacity-70" style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}><FiEdit2 size={14} /></button>
+                          <button onClick={() => handleDeleteC(cat)} className="p-2 rounded-lg hover:opacity-70" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}><FiTrash2 size={14} /></button>
                         </div>
                       </div>
                     ))}
@@ -270,20 +357,19 @@ function AdminDashboard() {
               </div>
             )}
 
-            {/* PRODUCTS */}
+            {/* ====== PRODUCTS ====== */}
             {tab === 'products' && (
               <div className="space-y-6 animate-fade-in">
                 <div className="flex items-center justify-between">
                   <h1 className="text-2xl font-display font-bold" style={{ color: 'var(--color-text)' }}>Products</h1>
-                  <button onClick={openAddP} disabled={categories.length===0}
-                    className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={categories.length===0 ? 'Add a category first' : ''}>
-                    <FiPlus size={16} />{categories.length===0 ? 'Add a category first' : 'Add Product'}
+                  <button onClick={openAddP} disabled={categories.length === 0}
+                    className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
+                    <FiPlus size={16} />{categories.length === 0 ? 'Add a category first' : 'Add Product'}
                   </button>
                 </div>
-                {categories.length===0 && (
+                {categories.length === 0 && (
                   <div className="p-4 rounded-2xl text-sm" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#d97706' }}>
-                    ⚠️ Create at least one category before adding products.{' '}
+                    ⚠️ Create at least one category first.{' '}
                     <button onClick={() => setTab('categories')} className="underline font-semibold">Go to Categories →</button>
                   </div>
                 )}
@@ -292,36 +378,53 @@ function AdminDashboard() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr style={{ background: 'var(--color-bg)', borderBottom: '1px solid var(--color-border)' }}>
-                          {['Image','Name','Category','Price','Stock','Actions'].map(h => (
-                            <th key={h} className="px-4 py-3 text-start font-medium opacity-50" style={{ color: 'var(--color-text)' }}>{h}</th>
+                          {['Image','Name','Category','Price','Discount','Sizes','Stock','Actions'].map(h => (
+                            <th key={h} className="px-3 py-3 text-start font-medium opacity-50" style={{ color: 'var(--color-text)' }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {products.length === 0 ? (
-                          <tr><td colSpan={6} className="text-center py-12 opacity-30" style={{ color: 'var(--color-text)' }}>No products yet.</td></tr>
+                          <tr><td colSpan={8} className="text-center py-12 opacity-30" style={{ color: 'var(--color-text)' }}>No products yet.</td></tr>
                         ) : products.map((p, i) => (
                           <tr key={p.id} style={{ background: i%2===0?'var(--color-bg-card)':'var(--color-bg)', borderTop: '1px solid var(--color-border)' }}>
-                            <td className="px-4 py-3">
-                              <div className="w-12 h-12 rounded-xl overflow-hidden" style={{ background: 'var(--color-border)' }}>
+                            <td className="px-3 py-3">
+                              <div className="w-10 h-10 rounded-xl overflow-hidden" style={{ background: 'var(--color-border)' }}>
                                 {p.images?.[0] && <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover" />}
                               </div>
                             </td>
-                            <td className="px-4 py-3">
-                              <p className="font-medium" style={{ color: 'var(--color-text)' }}>{p.name}</p>
+                            <td className="px-3 py-3">
+                              <p className="font-medium text-xs" style={{ color: 'var(--color-text)' }}>{p.name}</p>
                               <p className="text-xs opacity-40" style={{ color: 'var(--color-text)' }}>{p.nameAr}</p>
                             </td>
-                            <td className="px-4 py-3">
-                              <span className="badge capitalize" style={{ background: 'rgba(201,168,76,0.1)', color: 'var(--color-gold)' }}>{p.category}</span>
+                            <td className="px-3 py-3">
+                              <span className="badge capitalize text-xs" style={{ background: 'rgba(201,168,76,0.1)', color: 'var(--color-gold)' }}>{p.category}</span>
                             </td>
-                            <td className="px-4 py-3 font-semibold" style={{ color: 'var(--color-gold)' }}>{p.price?.toFixed(2)} NIS</td>
-                            <td className="px-4 py-3">
-                              <span className={`font-semibold ${p.quantity===0?'text-red-500':''}`} style={{ color: 'var(--color-text)' }}>{p.quantity??'—'}</span>
+                            <td className="px-3 py-3">
+                              <p className="font-semibold text-xs" style={{ color: 'var(--color-gold)' }}>{p.finalPrice?.toFixed(2)} SAR</p>
+                              {p.discount?.active && <p className="text-xs line-through opacity-40" style={{ color: 'var(--color-text)' }}>{p.price?.toFixed(2)}</p>}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-3 py-3">
+                              {p.discount?.active ? (
+                                <span className="badge text-xs" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+                                  {p.discount.type === 'percent' ? `${p.discount.value}%` : `${p.discount.value} SAR`}
+                                </span>
+                              ) : <span className="text-xs opacity-30" style={{ color: 'var(--color-text)' }}>—</span>}
+                            </td>
+                            <td className="px-3 py-3">
+                              {p.sizes?.length > 0
+                                ? <span className="text-xs opacity-70" style={{ color: 'var(--color-text)' }}>{p.sizes.join(', ')}</span>
+                                : <span className="text-xs opacity-30" style={{ color: 'var(--color-text)' }}>—</span>}
+                            </td>
+                            <td className="px-3 py-3">
+                              <span className={`font-semibold text-xs ${p.quantity === 0 ? 'text-red-500' : ''}`} style={{ color: p.quantity > 0 ? 'var(--color-text)' : undefined }}>
+                                {p.quantity ?? '—'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3">
                               <div className="flex gap-2">
-                                <button onClick={()=>openEditP(p)} className="p-2 rounded-lg hover:opacity-70" style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}><FiEdit2 size={14} /></button>
-                                <button onClick={()=>handleDeleteP(p)} className="p-2 rounded-lg hover:opacity-70" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}><FiTrash2 size={14} /></button>
+                                <button onClick={() => openEditP(p)} className="p-2 rounded-lg hover:opacity-70" style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}><FiEdit2 size={13} /></button>
+                                <button onClick={() => handleDeleteP(p)} className="p-2 rounded-lg hover:opacity-70" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}><FiTrash2 size={13} /></button>
                               </div>
                             </td>
                           </tr>
@@ -333,13 +436,23 @@ function AdminDashboard() {
               </div>
             )}
 
-            {/* ORDERS */}
+            {/* ====== ORDERS ====== */}
             {tab === 'orders' && (
               <div className="space-y-6 animate-fade-in">
-                <h1 className="text-2xl font-display font-bold" style={{ color: 'var(--color-text)' }}>Orders</h1>
-                {loadingO ? <TableSkeleton rows={5} /> : orders.length===0 ? (
-                  <p className="text-center py-16 opacity-30" style={{ color: 'var(--color-text)' }}>No orders yet.</p>
-                ) : orders.map(o => (
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <h1 className="text-2xl font-display font-bold" style={{ color: 'var(--color-text)' }}>Orders</h1>
+                  <span className="text-sm opacity-50" style={{ color: 'var(--color-text)' }}>
+                    Showing {filteredOrders.length} of {orders.length}
+                  </span>
+                </div>
+                {/* Status Filter */}
+                <StatusFilterBar value={orderFilter} onChange={setOrderFilter} />
+
+                {loadingO ? <TableSkeleton rows={5} /> : filteredOrders.length === 0 ? (
+                  <p className="text-center py-16 opacity-30" style={{ color: 'var(--color-text)' }}>
+                    No {orderFilter === 'all' ? '' : orderFilter} orders.
+                  </p>
+                ) : filteredOrders.map(o => (
                   <div key={o.id} className="p-5 rounded-2xl" style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
                     <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                       <div>
@@ -348,10 +461,10 @@ function AdminDashboard() {
                         {o.createdAt && <p className="text-xs opacity-30 mt-0.5" style={{ color: 'var(--color-text)' }}>{o.createdAt}</p>}
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-lg font-bold" style={{ color: 'var(--color-gold)' }}>{o.total?.toFixed(2)} NIS</span>
-                        <select value={o.status||'pending'} onChange={e=>handleStatusChange(o.id,e.target.value)}
+                        <span className="text-lg font-bold" style={{ color: 'var(--color-gold)' }}>{o.total?.toFixed(2)} SAR</span>
+                        <select value={o.status||'pending'} onChange={e => handleStatusChange(o.id, e.target.value)}
                           className="text-xs px-2 py-1.5 rounded-lg border outline-none font-medium"
-                          style={{ background: STATUS_COLORS[o.status]?.bg||STATUS_COLORS.pending.bg, color: STATUS_COLORS[o.status]?.color||STATUS_COLORS.pending.color, borderColor: 'transparent' }}>
+                          style={{ background: STATUS_COLORS[o.status||'pending']?.bg, color: STATUS_COLORS[o.status||'pending']?.color, borderColor: 'transparent' }}>
                           {['pending','confirmed','shipped','delivered','cancelled'].map(s => (
                             <option key={s} value={s} style={{ background: 'var(--color-bg-card)', color: 'var(--color-text)' }}>
                               {s.charAt(0).toUpperCase()+s.slice(1)}
@@ -360,13 +473,20 @@ function AdminDashboard() {
                         </select>
                       </div>
                     </div>
-                    {(o.items||[]).map((item,i)=>(
-                      <div key={i} className="flex items-center gap-3 text-sm mb-1">
-                        {item.image && <img src={item.image} alt={item.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />}
-                        <span className="flex-1 opacity-70" style={{ color: 'var(--color-text)' }}>{item.name} {item.color&&`(${item.color})`} ×{item.quantity}</span>
-                        <span style={{ color: 'var(--color-text)' }}>{(item.price*item.quantity).toFixed(2)} NIS</span>
-                      </div>
-                    ))}
+                    <div className="space-y-2">
+                      {(o.items||[]).map((item, i) => (
+                        <div key={i} className="flex items-center gap-3 text-sm">
+                          {item.image && <img src={item.image} alt={item.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />}
+                          <span className="flex-1 opacity-70" style={{ color: 'var(--color-text)' }}>
+                            {item.name}
+                            {item.color && <span className="ms-1 opacity-60">({item.color})</span>}
+                            {item.size  && <span className="ms-1 px-1.5 py-0.5 rounded text-xs font-medium" style={{ background: 'var(--color-border)' }}>{item.size}</span>}
+                            {' '}×{item.quantity}
+                          </span>
+                          <span style={{ color: 'var(--color-text)' }}>{(item.price * item.quantity).toFixed(2)} SAR</span>
+                        </div>
+                      ))}
+                    </div>
                     <p className="text-xs opacity-20 mt-2 font-mono" style={{ color: 'var(--color-text)' }}>ID: {o.id}</p>
                   </div>
                 ))}
@@ -376,28 +496,31 @@ function AdminDashboard() {
         </div>
       </div>
 
-      {/* PRODUCT MODAL */}
+      {/* ===== PRODUCT MODAL ===== */}
       {showPModal && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={()=>setShowPModal(false)} />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowPModal(false)} />
           <div className="relative w-full max-w-2xl my-8 rounded-3xl p-6 md:p-8" style={{ background: 'var(--color-bg-card)', boxShadow: 'var(--shadow-lg)' }}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-display font-semibold" style={{ color: 'var(--color-text)' }}>{editingP ? 'Edit Product' : 'Add Product'}</h2>
-              <button onClick={()=>setShowPModal(false)} className="p-2 rounded-xl hover:opacity-70" style={{ color: 'var(--color-text)' }}><FiX size={20} /></button>
+              <button onClick={() => setShowPModal(false)} className="p-2 rounded-xl hover:opacity-70" style={{ color: 'var(--color-text)' }}><FiX size={20} /></button>
             </div>
             <form onSubmit={handleSaveP} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Name EN */}
                 <div>
                   <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>Name (English) *</label>
-                  <input className="input-field" value={pForm.name} required onChange={e=>setPForm(f=>({...f,name:e.target.value}))} placeholder="Product name" />
+                  <input className="input-field" value={pForm.name} required onChange={e => setPForm(f => ({ ...f, name: e.target.value }))} placeholder="Product name" />
                 </div>
+                {/* Name AR */}
                 <div>
                   <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>Name (Arabic)</label>
-                  <input className="input-field" dir="rtl" value={pForm.nameAr} onChange={e=>setPForm(f=>({...f,nameAr:e.target.value}))} placeholder="اسم المنتج" />
+                  <input className="input-field" dir="rtl" value={pForm.nameAr} onChange={e => setPForm(f => ({ ...f, nameAr: e.target.value }))} placeholder="اسم المنتج" />
                 </div>
+                {/* Category */}
                 <div>
                   <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>Category *</label>
-                  <select className="input-field" value={pForm.category} required onChange={e=>setPForm(f=>({...f,category:e.target.value}))}>
+                  <select className="input-field" value={pForm.category} required onChange={e => setPForm(f => ({ ...f, category: e.target.value }))}>
                     <option value="" disabled>Select category</option>
                     {categories.map(c => (
                       <option key={c.id} value={c.name} style={{ background: 'var(--color-bg-card)', color: 'var(--color-text)' }}>
@@ -406,36 +529,100 @@ function AdminDashboard() {
                     ))}
                   </select>
                 </div>
+                {/* Price */}
                 <div>
-                  <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>Price (NIS) *</label>
-                  <input type="number" min="0" step="0.01" className="input-field" value={pForm.price} required onChange={e=>setPForm(f=>({...f,price:e.target.value}))} placeholder="0.00" />
+                  <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>Price (SAR) *</label>
+                  <input type="number" min="0" step="0.01" className="input-field" value={pForm.price} required onChange={e => setPForm(f => ({ ...f, price: e.target.value }))} placeholder="0.00" />
                 </div>
+                {/* Stock */}
                 <div>
                   <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>Stock Quantity</label>
-                  <input type="number" min="0" className="input-field" value={pForm.quantity} onChange={e=>setPForm(f=>({...f,quantity:e.target.value}))} placeholder="0" />
+                  <input type="number" min="0" className="input-field" value={pForm.quantity} onChange={e => setPForm(f => ({ ...f, quantity: e.target.value }))} placeholder="0" />
                 </div>
+                {/* Colors */}
                 <div>
                   <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>Colors (comma-separated)</label>
-                  <input className="input-field" value={pForm.colors} onChange={e=>setPForm(f=>({...f,colors:e.target.value}))} placeholder="#FF5733, Gold, Silver" />
+                  <input className="input-field" value={pForm.colors} onChange={e => setPForm(f => ({ ...f, colors: e.target.value }))} placeholder="#FF5733, Gold, Silver" />
                 </div>
               </div>
+
+              {/* Sizes — full width, optional */}
+              <div>
+                <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>
+                  Sizes (comma-separated, optional)
+                </label>
+                <input className="input-field" value={pForm.sizes} onChange={e => setPForm(f => ({ ...f, sizes: e.target.value }))}
+                  placeholder="e.g. S, M, L, XL, XXL  or  250ml, 500ml  or  Small, Large" />
+                <p className="text-xs opacity-30 mt-1" style={{ color: 'var(--color-text)' }}>
+                  Leave empty if product has no size options
+                </p>
+              </div>
+
+              {/* Discount section */}
+              <div className="p-4 rounded-2xl space-y-3" style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}>
+                <div className="flex items-center gap-3">
+                  <input type="checkbox" id="discountActive" checked={pForm.discount?.active || false}
+                    onChange={e => setPForm(f => ({ ...f, discount: { ...f.discount, active: e.target.checked } }))}
+                    className="w-4 h-4 rounded cursor-pointer" />
+                  <label htmlFor="discountActive" className="text-sm font-semibold cursor-pointer" style={{ color: 'var(--color-text)' }}>
+                    Enable Discount
+                  </label>
+                </div>
+                {pForm.discount?.active && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>Discount Type</label>
+                      <select className="input-field" value={pForm.discount?.type || 'percent'}
+                        onChange={e => setPForm(f => ({ ...f, discount: { ...f.discount, type: e.target.value } }))}>
+                        <option value="percent" style={{ background: 'var(--color-bg-card)', color: 'var(--color-text)' }}>Percentage (%)</option>
+                        <option value="fixed"   style={{ background: 'var(--color-bg-card)', color: 'var(--color-text)' }}>Fixed Amount (SAR)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>
+                        {pForm.discount?.type === 'percent' ? 'Discount %' : 'Discount Amount (SAR)'}
+                      </label>
+                      <input type="number" min="0" max={pForm.discount?.type === 'percent' ? 100 : undefined}
+                        step="0.01" className="input-field"
+                        value={pForm.discount?.value || ''}
+                        onChange={e => setPForm(f => ({ ...f, discount: { ...f.discount, value: e.target.value } }))}
+                        placeholder={pForm.discount?.type === 'percent' ? '10' : '5.00'} />
+                    </div>
+                    {/* Preview */}
+                    {pForm.price && pForm.discount?.value && (
+                      <div className="col-span-2 p-3 rounded-xl flex items-center gap-3" style={{ background: 'rgba(239,68,68,0.06)' }}>
+                        <span className="text-xs opacity-60" style={{ color: 'var(--color-text)' }}>Preview:</span>
+                        <span className="text-sm line-through opacity-40" style={{ color: 'var(--color-text)' }}>{parseFloat(pForm.price).toFixed(2)} SAR</span>
+                        <span className="text-sm font-bold text-red-500">→</span>
+                        <span className="text-sm font-bold" style={{ color: '#ef4444' }}>
+                          {pForm.discount?.type === 'percent'
+                            ? (parseFloat(pForm.price) * (1 - parseFloat(pForm.discount.value) / 100)).toFixed(2)
+                            : Math.max(0, parseFloat(pForm.price) - parseFloat(pForm.discount.value)).toFixed(2)
+                          } SAR
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Descriptions */}
               <div>
                 <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>Description (English)</label>
-                <textarea rows={2} className="input-field resize-none" value={pForm.description} onChange={e=>setPForm(f=>({...f,description:e.target.value}))} placeholder="Description..." />
+                <textarea rows={2} className="input-field resize-none" value={pForm.description} onChange={e => setPForm(f => ({ ...f, description: e.target.value }))} placeholder="Description..." />
               </div>
               <div>
                 <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>Description (Arabic)</label>
-                <textarea rows={2} dir="rtl" className="input-field resize-none" value={pForm.descriptionAr} onChange={e=>setPForm(f=>({...f,descriptionAr:e.target.value}))} placeholder="وصف المنتج..." />
+                <textarea rows={2} dir="rtl" className="input-field resize-none" value={pForm.descriptionAr} onChange={e => setPForm(f => ({ ...f, descriptionAr: e.target.value }))} placeholder="وصف المنتج..." />
               </div>
 
-              {/* Image Upload */}
+              {/* Images */}
               <div>
                 <label className="block text-xs font-medium mb-2 opacity-60" style={{ color: 'var(--color-text)' }}>Product Images</label>
-                <button type="button" onClick={()=>fileRef.current?.click()} disabled={uploading}
+                <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border-2 border-dashed transition-all hover:opacity-70 disabled:opacity-40"
                   style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
-                  <FiUpload size={16} />
-                  {uploading ? `Uploading... ${uploadPct}%` : 'Upload Images'}
+                  <FiUpload size={16} />{uploading ? `Uploading... ${uploadPct}%` : 'Upload Images'}
                 </button>
                 {uploading && (
                   <div className="mt-2 h-2 rounded-full overflow-hidden" style={{ background: 'var(--color-border)' }}>
@@ -445,10 +632,10 @@ function AdminDashboard() {
                 <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
                 {pForm.images.length > 0 && (
                   <div className="flex gap-2 mt-3 flex-wrap">
-                    {pForm.images.map((url,i) => (
+                    {pForm.images.map((url, i) => (
                       <div key={i} className="relative group w-16 h-16">
                         <img src={url} alt="" className="w-16 h-16 rounded-xl object-cover" />
-                        <button type="button" onClick={()=>setPForm(f=>({...f,images:f.images.filter((_,j)=>j!==i)}))}
+                        <button type="button" onClick={() => setPForm(f => ({ ...f, images: f.images.filter((_,j) => j!==i) }))}
                           className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
                           style={{ background: '#ef4444' }}>
                           <FiX size={10} />
@@ -463,44 +650,44 @@ function AdminDashboard() {
                 <button type="submit" disabled={savingP} className="btn-primary flex-1 justify-center disabled:opacity-60">
                   {savingP ? 'Saving...' : editingP ? 'Update' : 'Create'}
                 </button>
-                <button type="button" onClick={()=>setShowPModal(false)} className="btn-secondary px-6">Cancel</button>
+                <button type="button" onClick={() => setShowPModal(false)} className="btn-secondary px-6">Cancel</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* CATEGORY MODAL */}
+      {/* ===== CATEGORY MODAL ===== */}
       {showCModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={()=>setShowCModal(false)} />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowCModal(false)} />
           <div className="relative w-full max-w-sm rounded-3xl p-6" style={{ background: 'var(--color-bg-card)', boxShadow: 'var(--shadow-lg)' }}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-display font-semibold" style={{ color: 'var(--color-text)' }}>{editingC ? 'Edit Category' : 'Add Category'}</h2>
-              <button onClick={()=>setShowCModal(false)} className="p-2 rounded-xl hover:opacity-70" style={{ color: 'var(--color-text)' }}><FiX size={20} /></button>
+              <button onClick={() => setShowCModal(false)} className="p-2 rounded-xl hover:opacity-70" style={{ color: 'var(--color-text)' }}><FiX size={20} /></button>
             </div>
             <form onSubmit={handleSaveC} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>Name (English) *</label>
-                <input className="input-field" value={cForm.name} required onChange={e=>setCForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Cookware" />
+                <input className="input-field" value={cForm.name} required onChange={e => setCForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Cookware" />
                 <p className="text-xs mt-1 opacity-30" style={{ color: 'var(--color-text)' }}>Key: "{cForm.name.toLowerCase()}"</p>
               </div>
               <div>
                 <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>Name (Arabic)</label>
-                <input className="input-field" dir="rtl" value={cForm.nameAr} onChange={e=>setCForm(f=>({...f,nameAr:e.target.value}))} placeholder="أواني الطهي" />
+                <input className="input-field" dir="rtl" value={cForm.nameAr} onChange={e => setCForm(f => ({ ...f, nameAr: e.target.value }))} placeholder="أواني الطهي" />
               </div>
               <div>
                 <label className="block text-xs font-medium mb-2 opacity-60" style={{ color: 'var(--color-text)' }}>Color</label>
                 <div className="flex items-center gap-3">
-                  <input type="color" value={cForm.color} onChange={e=>setCForm(f=>({...f,color:e.target.value}))}
+                  <input type="color" value={cForm.color} onChange={e => setCForm(f => ({ ...f, color: e.target.value }))}
                     className="w-12 h-10 rounded-lg cursor-pointer border" style={{ borderColor: 'var(--color-border)' }} />
-                  <input className="input-field flex-1" value={cForm.color} onChange={e=>setCForm(f=>({...f,color:e.target.value}))} placeholder="#c9a84c" />
+                  <input className="input-field flex-1" value={cForm.color} onChange={e => setCForm(f => ({ ...f, color: e.target.value }))} placeholder="#c9a84c" />
                   <div className="w-10 h-10 rounded-xl flex-shrink-0" style={{ background: cForm.color }} />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-medium mb-1 opacity-60" style={{ color: 'var(--color-text)' }}>Icon</label>
-                <select className="input-field" value={cForm.icon||'FiBox'} onChange={e=>setCForm(f=>({...f,icon:e.target.value}))}>
+                <select className="input-field" value={cForm.icon||'FiBox'} onChange={e => setCForm(f => ({ ...f, icon: e.target.value }))}>
                   <option value="FiBox">📦 Default Box</option>
                   <option value="GiCookingPot">🍳 Cooking Pot</option>
                   <option value="GiPerfumeBottle">🌸 Perfume Bottle</option>
@@ -523,13 +710,12 @@ function AdminDashboard() {
                   <option value="BsFlower1">🌸 Flower 1</option>
                   <option value="BsFlower2">🌸 Flower 2</option>
                 </select>
-                <p className="text-xs opacity-30 mt-1" style={{ color: 'var(--color-text)' }}>Icon shown on homepage category card</p>
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="submit" disabled={savingC} className="btn-primary flex-1 justify-center disabled:opacity-60">
                   {savingC ? 'Saving...' : editingC ? 'Update' : 'Create'}
                 </button>
-                <button type="button" onClick={()=>setShowCModal(false)} className="btn-secondary px-6">Cancel</button>
+                <button type="button" onClick={() => setShowCModal(false)} className="btn-secondary px-6">Cancel</button>
               </div>
             </form>
           </div>

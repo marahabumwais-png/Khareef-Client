@@ -1,79 +1,58 @@
-// Cart Context - Global cart state with localStorage persistence
+// Cart Context - supports color + size
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import toast from 'react-hot-toast';
 
 const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
-  const [cart, setCart] = useState([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [cart,        setCart]        = useState([]);
+  const [isCartOpen,  setIsCartOpen]  = useState(false);
 
-  // Load cart from localStorage on mount
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('khareef_cart');
-      if (saved) setCart(JSON.parse(saved));
-    } catch {}
+    try { const s = localStorage.getItem('khareef_cart'); if (s) setCart(JSON.parse(s)); } catch {}
   }, []);
 
-  // Save cart to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('khareef_cart', JSON.stringify(cart));
   }, [cart]);
 
-  const addToCart = useCallback((product, selectedColor, quantity = 1) => {
+  const addToCart = useCallback((product, selectedColor, selectedSize, quantity = 1) => {
     setCart(prev => {
-      const key = `${product.id}-${selectedColor}`;
-      const existing = prev.find(item => item.cartKey === key);
-
+      const key      = `${product.id}-${selectedColor}-${selectedSize}`;
+      const existing = prev.find(i => i.cartKey === key);
+      const price    = product.finalPrice ?? product.price;
       if (existing) {
-        return prev.map(item =>
-          item.cartKey === key
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
-        );
+        return prev.map(i => i.cartKey === key ? { ...i, quantity: i.quantity + quantity } : i);
       }
-
       return [...prev, {
         cartKey: key,
-        id: product.id,
-        name: product.name,
-        nameAr: product.nameAr,
-        price: product.price,
-        image: product.images?.[0] || '',
+        id:            product.id,
+        name:          product.name,
+        nameAr:        product.nameAr,
+        price,
+        originalPrice: product.price,
+        hasDiscount:   price < product.price,
+        image:         product.images?.[0] || '',
         selectedColor,
+        selectedSize,
         quantity,
       }];
     });
   }, []);
 
-  const removeFromCart = useCallback((cartKey) => {
-    setCart(prev => prev.filter(item => item.cartKey !== cartKey));
-  }, []);
-
-  const updateQuantity = useCallback((cartKey, quantity) => {
+  const removeFromCart  = useCallback((cartKey) => setCart(p => p.filter(i => i.cartKey !== cartKey)), []);
+  const updateQuantity  = useCallback((cartKey, quantity) => {
     if (quantity < 1) return;
-    setCart(prev =>
-      prev.map(item => item.cartKey === cartKey ? { ...item, quantity } : item)
-    );
+    setCart(p => p.map(i => i.cartKey === cartKey ? { ...i, quantity } : i));
   }, []);
-
   const clearCart = useCallback(() => setCart([]), []);
 
-  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
+  const totalPrice = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
 
   return (
     <CartContext.Provider value={{
-      cart,
-      addToCart,
-      removeFromCart,
-      updateQuantity,
-      clearCart,
-      totalItems,
-      totalPrice,
-      isCartOpen,
-      setIsCartOpen,
+      cart, addToCart, removeFromCart, updateQuantity, clearCart,
+      totalItems, totalPrice, isCartOpen, setIsCartOpen,
     }}>
       {children}
     </CartContext.Provider>

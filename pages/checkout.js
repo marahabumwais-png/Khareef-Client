@@ -41,7 +41,7 @@ export default function CheckoutPage() {
         items: cart.map(item => ({
           productId: item.id, name: item.name, nameAr: item.nameAr,
           price: item.price, quantity: item.quantity,
-          color: item.selectedColor, image: item.image,
+          color: item.selectedColor, size: item.selectedSize, image: item.image,
         })),
         total: totalPrice,
       });
@@ -147,7 +147,7 @@ export default function CheckoutPage() {
                 <div className="flex justify-between text-base font-bold pt-3 border-t"
                   style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
                   <span>{t('total')}</span>
-                  <span style={{ color: 'var(--color-gold)' }}>{totalPrice.toFixed(2)} {t('nis')}</span>
+                  <span style={{ color: 'var(--color-gold)' }}>{totalPrice.toFixed(2)} {t('sar')}</span>
                 </div>
               </div>
             </div>
